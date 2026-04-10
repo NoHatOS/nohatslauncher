@@ -3,120 +3,110 @@ from tkinter import filedialog
 import json
 import os
 
-# Forzar modo oscuro total y tema
+# Configuración de estilo global
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("dark-blue")
+FONT_MODERNA = "Segoe UI Light"
+FONT_BOLD = "Segoe UI"
 
-class MiniLauncher(ctk.CTk):
+class UltraLauncher(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Ventana compacta, limpia y SIN barra de título por defecto
-        # (Usaremos la barra estándar para facilitar el cierre, pero muy minimal)
+        # Configuración de Ventana
         self.title("")
-        self.geometry("360x550")
-        self.configure(fg_color="#000000") # NEGRO ABSOLUTO
+        self.geometry("380x500")
+        self.configure(fg_color="#000000")
         self.resizable(False, False)
         
-        # Ruta de datos segura
-        self.db_file = os.path.join(os.path.expanduser("~"), "my_launcher_v11.json")
+        self.db_file = os.path.join(os.path.expanduser("~"), "launcher_minimal_v5.json")
         self.juegos = self.cargar_datos()
 
-        # --- CABECERA (Solo Icono Add) ---
-        # Creamos un frame para el icono "Add" gráfico
-        self.header_frame = ctk.CTkFrame(self, fg_color="transparent", width=360, height=60)
-        self.header_frame.place(x=0, y=10)
-        self.header_frame.pack_propagate(False)
+        # --- MENU DESPLEGABLE (OCULTO POR DEFECTO) ---
+        self.menu_visible = False
+        self.menu_add = ctk.CTkFrame(self, fg_color="#0A0A0A", height=0, corner_radius=0)
+        self.menu_add.place(relx=0.5, rely=0, anchor="n", relwidth=1)
 
-        # ICONO GRÁFICO "ADD" (Un '+' minimalista)
-        # Usamos un CTkButton pero estilizado como icono
-        self.btn_add_icon = ctk.CTkButton(self.header_frame, 
-                                          text="+", # Símbolo simple
-                                          font=("Arial", 26), 
-                                          width=40, height=40,
-                                          corner_radius=20, # Redondeado total
-                                          fg_color="#111111", # Casi negro
-                                          text_color="#FFFFFF",
-                                          hover_color="#333333", # Gris oscuro al pasar el raton
-                                          border_width=1,
-                                          border_color="#222222",
-                                          command=self.abrir_ventana_add)
-        self.btn_add_icon.place(relx=0.92, rely=0.5, anchor="ne")
+        # Contenido del menú desplegable
+        self.entry_name = ctk.CTkEntry(self.menu_add, placeholder_text="Nombre", fg_color="#000000", 
+                                       border_color="#1A1A1A", font=(FONT_MODERNA, 12))
+        self.entry_name.pack(pady=(15, 5), padx=40, fill="x")
+        
+        self.path_temp = ""
+        self.btn_sel = ctk.CTkButton(self.menu_add, text="Seleccionar Archivo", fg_color="#111111", 
+                                     hover_color="#1A1A1A", font=(FONT_MODERNA, 11), command=self.seleccionar_exe)
+        self.btn_sel.pack(pady=5)
 
-        # --- CONTENEDOR DE JUEGOS (GRID) ---
-        self.canvas = ctk.CTkScrollableFrame(self, fg_color="transparent", width=330, height=440)
-        self.canvas.place(x=15, y=80)
-        self.canvas.columnconfigure((0, 1), weight=1)
+        self.btn_save = ctk.CTkButton(self.menu_add, text="GUARDAR", fg_color="#FFFFFF", text_color="#000000", 
+                                      font=(FONT_BOLD, 10, "bold"), command=self.guardar_juego, height=25)
+        self.btn_save.pack(pady=(5, 15))
 
-        self.refrescar_lista()
+        # --- CABECERA ---
+        self.header = ctk.CTkFrame(self, fg_color="transparent", height=50)
+        self.header.pack(fill="x", padx=20, pady=(10, 0))
+
+        # Icono + para desplegar/ocultar menú
+        self.btn_toggle = ctk.CTkButton(self.header, text="+", font=(FONT_MODERNA, 24), width=30, height=30,
+                                        fg_color="transparent", text_color="#FFFFFF", hover_color="#111111",
+                                        command=self.toggle_menu)
+        self.btn_toggle.pack(side="right")
+
+        # --- LISTA DE APPS (GRID COMPACTO) ---
+        self.scroll = ctk.CTkScrollableFrame(self, fg_color="transparent", width=340, height=400)
+        self.scroll.pack(fill="both", expand=True, padx=15, pady=10)
+        self.scroll.columnconfigure((0, 1), weight=1)
+
+        self.renderizar_apps()
 
     def cargar_datos(self):
         if os.path.exists(self.db_file):
-            with open(self.db_file, "r") as f:
-                return json.load(f)
+            with open(self.db_file, "r") as f: return json.load(f)
         return []
 
-    def refrescar_lista(self):
-        for child in self.canvas.winfo_children():
-            child.destroy()
+    def toggle_menu(self):
+        if not self.menu_visible:
+            self.menu_add.configure(height=160)
+            self.btn_toggle.configure(text="×") # Cambia + por una X
+        else:
+            self.menu_add.configure(height=0)
+            self.btn_toggle.configure(text="+")
+        self.menu_visible = not self.menu_visible
 
-        for i, juego in enumerate(self.juegos):
-            # Bloque de juego (Tarjeta Minimal)
-            card = ctk.CTkFrame(self.canvas, fg_color="#080808", corner_radius=12, 
-                                border_width=1, border_color="#1A1A1A", height=160)
-            card.grid(row=i//2, column=i%2, padx=10, pady=10, sticky="nsew")
+    def seleccionar_exe(self):
+        p = filedialog.askopenfilename(filetypes=[("Ejecutables", "*.exe")])
+        if p:
+            self.path_temp = p
+            self.btn_sel.configure(text="Listo", fg_color="#FFFFFF", text_color="#000000")
+
+    def guardar_juego(self):
+        if self.entry_name.get() and self.path_temp:
+            self.juegos.append({"nombre": self.entry_name.get(), "ruta": self.path_temp})
+            with open(self.db_file, "w") as f: json.dump(self.juegos, f)
+            self.renderizar_apps()
+            self.entry_name.delete(0, 'end')
+            self.path_temp = ""
+            self.btn_sel.configure(text="Seleccionar Archivo", fg_color="#111111", text_color="#FFFFFF")
+            self.toggle_menu()
+
+    def renderizar_apps(self):
+        for w in self.scroll.winfo_children(): w.destroy()
+
+        for i, app in enumerate(self.juegos):
+            # Barra horizontal pequeña
+            card = ctk.CTkFrame(self.scroll, fg_color="#0A0A0A", corner_radius=5, 
+                                border_width=1, border_color="#151515", height=45)
+            card.grid(row=i//2, column=i%2, padx=5, pady=5, sticky="nsew")
             card.pack_propagate(False)
 
-            # Nombre del juego (Mayúsculas, fino)
-            name = ctk.CTkLabel(card, text=juego["nombre"].upper(), 
-                                font=("Inter Light", 11), text_color="#AAAAAA")
-            name.pack(pady=(35, 10))
+            # Nombre a la izquierda (en minúsculas para más estilo)
+            lbl = ctk.CTkLabel(card, text=app["nombre"].lower(), font=(FONT_MODERNA, 12), text_color="#888888")
+            lbl.pack(side="left", padx=12)
 
-            # Botón Play blanco minimalista
-            btn_play = ctk.CTkButton(card, text="PLAY", width=90, height=30,
-                                     fg_color="#FFFFFF", text_color="#000000",
-                                     hover_color="#DDDDDD", font=("Inter Bold", 12),
-                                     corner_radius=15, # Muy redondeado
-                                     command=lambda r=juego["ruta"]: os.startfile(r))
-            btn_play.pack(side="bottom", pady=25)
-
-    def abrir_ventana_add(self):
-        # Ventana flotante estéticamente igual
-        modal = ctk.CTkToplevel(self)
-        modal.title("Add New")
-        modal.geometry("320x280")
-        modal.configure(fg_color="#080808")
-        modal.attributes("-topmost", True)
-        modal.grab_set()
-
-        ctk.CTkLabel(modal, text="NEW GAME", font=("Inter Bold", 12), text_color="#FFFFFF").pack(pady=(35, 5))
-        entry_name = ctk.CTkEntry(modal, fg_color="#000000", border_color="#222222", 
-                                  text_color="#FFFFFF", corner_radius=8)
-        entry_name.pack(pady=5, padx=30, fill="x")
-
-        path_data = {"val": ""}
-
-        def get_path():
-            p = filedialog.askopenfilename(filetypes=[("Executables", "*.exe")])
-            if p: 
-                path_data["val"] = p
-                btn_sel.configure(text="READY", fg_color="#FFFFFF", text_color="#000000")
-
-        btn_sel = ctk.CTkButton(modal, text="SELECT EXE", fg_color="#1A1A1A", text_color="#FFFFFF",
-                                 corner_radius=8, command=get_path)
-        btn_sel.pack(pady=20)
-
-        def save():
-            if entry_name.get() and path_data["val"]:
-                self.juegos.append({"nombre": entry_name.get(), "ruta": path_data["val"]})
-                with open(self.db_file, "w") as f:
-                    json.dump(self.juegos, f)
-                self.refrescar_lista()
-                modal.destroy()
-
-        ctk.CTkButton(modal, text="SAVE", fg_color="#FFFFFF", text_color="#000000", 
-                      font=("Inter Bold", 13), corner_radius=15, command=save).pack(pady=10)
+            # Botón play pequeño a la derecha
+            btn = ctk.CTkButton(card, text="run", width=40, height=20, fg_color="transparent",
+                                hover_color="#1A1A1A", text_color="#FFFFFF", font=(FONT_BOLD, 9, "bold"),
+                                command=lambda r=app["ruta"]: os.startfile(r))
+            btn.pack(side="right", padx=10)
 
 if __name__ == "__main__":
-    app = MiniLauncher()
+    app = UltraLauncher()
     app.mainloop()
