@@ -2,7 +2,9 @@ import customtkinter as ctk
 from tkinter import filedialog
 import json
 import os
+import sys
 
+# Forzar modo oscuro total
 ctk.set_appearance_mode("dark")
 
 class Launcher(ctk.CTk):
@@ -12,24 +14,27 @@ class Launcher(ctk.CTk):
         self.title("")
         self.geometry("380x500")
         self.configure(fg_color="#000000") 
+        self.resizable(False, False)
         
-        # Guardamos en una ruta segura para evitar el error de permisos
-        self.db_file = os.path.join(os.path.expanduser("~"), "launcher_games_data.json")
+        # SOLUCIÓN AL ERROR 13: Usamos un nombre de archivo único en la carpeta temporal de usuario
+        # Esto evita cualquier bloqueo de permisos de la carpeta Downloads
+        self.db_file = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), "my_launcher_v3.json")
+        
         self.juegos = self.cargar_datos()
 
         # --- CABECERA ---
-        # "Library" en blanco y con primera mayúscula
-        self.lbl_title = ctk.CTkLabel(self, text="Library", font=("Arial", 16, "bold"), text_color="#FFFFFF")
+        # "Library" - Blanco puro, negrita
+        self.lbl_title = ctk.CTkLabel(self, text="Library", font=("Arial", 18, "bold"), text_color="#FFFFFF")
         self.lbl_title.place(x=20, y=20)
 
-        # "Add" más blanco y centrado en la esquina derecha
-        self.btn_settings = ctk.CTkButton(self, text="Add", width=50, height=25,
-                                          fg_color="transparent", text_color="#EEEEEE",
-                                          hover_color="#111111", font=("Arial", 12, "bold"),
-                                          command=self.abrir_ajustes)
-        self.btn_settings.place(relx=0.95, rely=0.05, anchor="ne")
+        # "Add" - Blanco puro, centrado en la esquina superior derecha
+        self.btn_add = ctk.CTkButton(self, text="Add", width=60, height=28,
+                                     fg_color="transparent", text_color="#FFFFFF",
+                                     hover_color="#1A1A1A", font=("Arial", 14, "bold"),
+                                     command=self.abrir_ajustes)
+        self.btn_add.place(relx=0.95, rely=0.05, anchor="ne")
 
-        # Contenedor
+        # Contenedor de juegos
         self.scroll = ctk.CTkScrollableFrame(self, fg_color="transparent", width=340, height=380)
         self.scroll.place(x=10, y=70)
         self.scroll.columnconfigure((0, 1), weight=1)
@@ -44,20 +49,36 @@ class Launcher(ctk.CTk):
             except: return []
         return []
 
+    def guardar_datos(self):
+        # Intentar guardar y atrapar el error de permisos específicamente
+        try:
+            with open(self.db_file, "w") as f:
+                json.dump(self.juegos, f)
+            return True
+        except PermissionError:
+            # Si falla, intentamos guardar con otro nombre temporal
+            self.db_file = self.db_file.replace(".json", "_backup.json")
+            with open(self.db_file, "w") as f:
+                json.dump(self.juegos, f)
+            return True
+        except Exception as e:
+            print(f"Error fatal: {e}")
+            return False
+
     def dibujar_juegos(self):
         for w in self.scroll.winfo_children():
             w.destroy()
 
         for i, j in enumerate(self.juegos):
-            card = ctk.CTkFrame(self.scroll, fg_color="#080808", border_width=1, border_color="#1A1A1A", height=140)
+            card = ctk.CTkFrame(self.scroll, fg_color="#0A0A0A", border_width=1, border_color="#1A1A1A", height=145)
             card.grid(row=i//2, column=i%2, padx=8, pady=8, sticky="nsew")
             card.pack_propagate(False)
 
-            ctk.CTkLabel(card, text=j["nombre"].capitalize(), font=("Arial", 12, "bold"), text_color="#FFFFFF").pack(pady=(20, 10))
+            ctk.CTkLabel(card, text=j["nombre"].capitalize(), font=("Arial", 13, "bold"), text_color="#FFFFFF").pack(pady=(25, 10))
             
-            btn_play = ctk.CTkButton(card, text="PLAY", width=80, height=24, 
+            btn_play = ctk.CTkButton(card, text="PLAY", width=80, height=26, 
                                      fg_color="#FFFFFF", text_color="#000000",
-                                     hover_color="#CCCCCC", font=("Arial", 10, "bold"),
+                                     hover_color="#DDDDDD", font=("Arial", 11, "bold"),
                                      command=lambda r=j["ruta"]: self.lanzar(r))
             btn_play.pack(side="bottom", pady=20)
 
@@ -65,41 +86,39 @@ class Launcher(ctk.CTk):
         try:
             os.startfile(ruta)
         except:
-            print("No se pudo abrir el archivo")
+            pass
 
     def abrir_ajustes(self):
         top = ctk.CTkToplevel(self)
-        top.title("Add New Game")
-        top.geometry("320x250")
-        top.configure(fg_color="#080808")
+        top.title("Add")
+        top.geometry("300x230")
+        top.configure(fg_color="#0A0A0A")
         top.attributes("-topmost", True)
         top.grab_set()
 
-        ctk.CTkLabel(top, text="Game Name", text_color="#FFFFFF").pack(pady=(20, 0))
-        name_in = ctk.CTkEntry(top, fg_color="#000000", border_color="#333333")
-        name_in.pack(pady=10, padx=30, fill="x")
+        ctk.CTkLabel(top, text="Game Name", font=("Arial", 12, "bold"), text_color="#FFFFFF").pack(pady=(20, 5))
+        name_in = ctk.CTkEntry(top, fg_color="#000000", border_color="#222222", text_color="#FFFFFF")
+        name_in.pack(pady=5, padx=30, fill="x")
 
         path_ref = {"url": ""}
 
         def browse():
             p = filedialog.askopenfilename(filetypes=[("Exe", "*.exe")])
-            if p: path_ref["url"] = p
+            if p: 
+                path_ref["url"] = p
+                btn_file.configure(text="Selected!", fg_color="#1A4A1A")
 
-        ctk.CTkButton(top, text="Select Executable", fg_color="#1A1A1A", command=browse).pack(pady=5)
+        btn_file = ctk.CTkButton(top, text="Select .exe", fg_color="#1A1A1A", text_color="#FFFFFF", command=browse)
+        btn_file.pack(pady=15)
 
-        def save():
+        def save_and_close():
             if name_in.get() and path_ref["url"]:
                 self.juegos.append({"nombre": name_in.get(), "ruta": path_ref["url"]})
-                # Intento de guardado con manejo de errores
-                try:
-                    with open(self.db_file, "w") as f:
-                        json.dump(self.juegos, f)
+                if self.guardar_datos():
                     self.dibujar_juegos()
                     top.destroy()
-                except PermissionError:
-                    print("Error: Cierra el archivo data.json si lo tienes abierto.")
 
-        ctk.CTkButton(top, text="Save", fg_color="#FFFFFF", text_color="#000000", command=save).pack(pady=20)
+        ctk.CTkButton(top, text="Save", fg_color="#FFFFFF", text_color="#000000", font=("Arial", 12, "bold"), command=save_and_close).pack(pady=10)
 
 if __name__ == "__main__":
     app = Launcher()
