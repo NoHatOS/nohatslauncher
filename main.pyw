@@ -3,44 +3,48 @@ from tkinter import filedialog
 import json
 import os
 
-# Configuración visual: Negro profundo
-COLOR_FONDO = "#0A0A0A"  # Negro casi puro
-COLOR_TARJETA = "#161616" # Gris muy oscuro para los bloques
-COLOR_ACCENTO = "#333333" # Para botones y hover
-FONT_PRINCIPAL = "Segoe UI" # Fuente limpia y moderna
+# Estética Minimalista Extrema
+BG_BLACK = "#050505"      # Negro casi absoluto
+CARD_GRAY = "#111111"     # Gris muy sutil para bloques
+TEXT_WHITE = "#E0E0E0"
+ACCENT = "#1A1A1A"        # Gris oscuro para botones
 
-class LauncherApp(ctk.CTk):
+class MiniLauncher(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Game Station")
-        self.geometry("700x500")
-        self.configure(fg_color=COLOR_FONDO)
+        # Ventana Pequeña y Centrada
+        self.title("") 
+        self.geometry("400x500") # Tamaño mini
+        self.configure(fg_color=BG_BLACK)
+        self.resizable(False, False)
 
-        # Archivo donde guardaremos tus juegos
-        self.db_file = "mis_juegos.json"
+        self.db_file = "games_data.json"
         self.juegos = self.cargar_datos()
 
-        # --- UI SUPERIOR ---
-        self.label = ctk.CTkLabel(self, text="LIBRARY", 
-                                  font=(FONT_PRINCIPAL, 24, "bold"), 
-                                  text_color="#FFFFFF")
-        self.label.pack(pady=(30, 10))
+        # --- CABECERA ---
+        self.header = ctk.CTkFrame(self, fg_color="transparent")
+        self.header.pack(fill="x", padx=20, pady=15)
 
-        # Botón Engranaje (Minimalista)
-        self.settings_btn = ctk.CTkButton(self, text="⚙", width=40, height=40,
-                                          fg_color="transparent",
-                                          hover_color=COLOR_ACCENTO,
-                                          text_color="gray",
-                                          font=("Arial", 20),
-                                          command=self.abrir_configuracion)
-        self.settings_btn.place(relx=0.96, rely=0.04, anchor="ne")
+        self.title_label = ctk.CTkLabel(self.header, text="GAMES", 
+                                        font=("Inter", 16, "bold"), text_color=TEXT_WHITE)
+        self.title_label.pack(side="left")
 
-        # --- CONTENEDOR DE JUEGOS ---
-        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent", orientation="horizontal", height=250)
-        self.scroll_frame.pack(fill="x", padx=20, pady=20)
+        # Engranaje pequeño arriba a la derecha
+        self.btn_cfg = ctk.CTkButton(self.header, text="⚙", width=25, height=25,
+                                     fg_color="transparent", hover_color=CARD_GRAY,
+                                     text_color="gray", command=self.abrir_config)
+        self.btn_cfg.pack(side="right")
 
-        self.renderizar_juegos()
+        # --- CONTENEDOR GRID (2 JUEGOS POR FILA) ---
+        # Usamos un Frame con scroll por si tienes muchos juegos
+        self.main_container = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
+        self.main_container.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Configurar las 2 columnas iguales
+        self.main_container.grid_columnconfigure((0, 1), weight=1)
+
+        self.dibujar_grid()
 
     def cargar_datos(self):
         if os.path.exists(self.db_file):
@@ -52,68 +56,60 @@ class LauncherApp(ctk.CTk):
         with open(self.db_file, "w") as f:
             json.dump(self.juegos, f)
 
-    def renderizar_juegos(self):
-        # Limpiar bloques actuales
-        for widget in self.scroll_frame.winfo_children():
-            widget.destroy()
+    def dibujar_grid(self):
+        # Limpiar
+        for w in self.main_container.winfo_children():
+            w.destroy()
 
-        # Crear bloques por cada juego guardado
-        for juego in self.juegos:
-            card = ctk.CTkFrame(self.scroll_frame, width=180, height=200, 
-                                fg_color=COLOR_TARJETA, corner_radius=12)
-            card.pack(side="left", padx=15, pady=10)
+        # Crear bloques en 2 columnas
+        for i, juego in enumerate(self.juegos):
+            fila = i // 2
+            columna = i % 2
+            
+            card = ctk.CTkFrame(self.main_container, fg_color=CARD_GRAY, corner_radius=8, height=120)
+            card.grid(row=fila, column=columna, padx=8, pady=8, sticky="nsew")
             card.pack_propagate(False)
 
-            lbl = ctk.CTkLabel(card, text=juego["nombre"].upper(), 
-                               font=(FONT_PRINCIPAL, 13, "bold"), text_color="#E0E0E0")
-            lbl.pack(pady=(40, 20))
+            name_lbl = ctk.CTkLabel(card, text=juego["nombre"].lower(), 
+                                    font=("Inter", 12), text_color=TEXT_WHITE)
+            name_lbl.pack(pady=(20, 10))
 
-            btn = ctk.CTkButton(card, text="LAUNCH", 
-                                fg_color=COLOR_ACCENTO,
-                                hover_color="#444444",
-                                corner_radius=20,
-                                font=(FONT_PRINCIPAL, 11, "bold"),
-                                command=lambda p=juego["ruta"]: self.ejecutar_juego(p))
-            btn.pack(side="bottom", pady=20)
+            play_btn = ctk.CTkButton(card, text="play", width=80, height=24,
+                                     fg_color=ACCENT, hover_color="#252525",
+                                     font=("Inter", 11), corner_radius=4,
+                                     command=lambda p=juego["ruta"]: os.startfile(p))
+            play_btn.pack(pady=5)
 
-    def ejecutar_juego(self, ruta):
-        try:
-            os.startfile(ruta)
-        except Exception as e:
-            print(f"Error al abrir: {e}")
+    def abrir_config(self):
+        # Ventana de configuración mini
+        modal = ctk.CTkToplevel(self)
+        modal.title("+")
+        modal.geometry("300x200")
+        modal.configure(fg_color=CARD_GRAY)
+        modal.attributes("-topmost", True)
+        modal.resizable(False, False)
 
-    def abrir_configuracion(self):
-        # Ventana emergente para añadir juego
-        ventana_add = ctk.CTkToplevel(self)
-        ventana_add.title("Añadir Juego")
-        ventana_add.geometry("400x300")
-        ventana_add.configure(fg_color=COLOR_TARJETA)
-        ventana_add.attributes("-topmost", True) # Que aparezca encima
+        nombre_var = ctk.StringVar()
+        ruta_var = ctk.StringVar()
 
-        ctk.CTkLabel(ventana_add, text="NOMBRE DEL JUEGO", font=(FONT_PRINCIPAL, 12)).pack(pady=(20, 5))
-        entrada_nombre = ctk.CTkEntry(ventana_add, width=250, fg_color=COLOR_FONDO, border_color=COLOR_ACCENTO)
-        entrada_nombre.pack(pady=5)
+        ctk.CTkEntry(modal, placeholder_text="Nombre del juego", textvariable=nombre_var,
+                     fg_color=BG_BLACK, border_color=ACCENT).pack(pady=(20, 10), padx=20, fill="x")
 
-        ruta_seleccionada = [""]
+        def buscar_exe():
+            path = filedialog.askopenfilename(filetypes=[("Exe", "*.exe")])
+            ruta_var.set(path)
 
-        def seleccionar_archivo():
-            ruta = filedialog.askopenfilename(filetypes=[("Ejecutables", "*.exe")])
-            if ruta:
-                ruta_seleccionada[0] = ruta
-                btn_file.configure(text="¡ARCHIVO LISTO!", fg_color="#225522")
+        ctk.CTkButton(modal, text="Buscar .exe", fg_color=ACCENT, command=buscar_exe).pack(pady=5)
 
-        btn_file = ctk.CTkButton(ventana_add, text="SELECCIONAR .EXE", command=seleccionar_archivo, fg_color=COLOR_ACCENTO)
-        btn_file.pack(pady=20)
-
-        def confirmar():
-            if entrada_nombre.get() and ruta_seleccionada[0]:
-                self.juegos.append({"nombre": entrada_nombre.get(), "ruta": ruta_seleccionada[0]})
+        def save():
+            if nombre_var.get() and ruta_var.get():
+                self.juegos.append({"nombre": nombre_var.get(), "ruta": ruta_var.get()})
                 self.guardar_datos()
-                self.renderizar_juegos()
-                ventana_add.destroy()
+                self.dibujar_grid()
+                modal.destroy()
 
-        ctk.CTkButton(ventana_add, text="GUARDAR", fg_color="#FFFFFF", text_color="black", command=confirmar).pack(pady=10)
+        ctk.CTkButton(modal, text="Añadir", fg_color="white", text_color="black", command=save).pack(pady=20)
 
 if __name__ == "__main__":
-    app = LauncherApp()
+    app = MiniLauncher()
     app.mainloop()
